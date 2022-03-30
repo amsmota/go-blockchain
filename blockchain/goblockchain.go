@@ -9,7 +9,11 @@ import (
 	"time"
 )
 
-const MINING_DIFFICULTY = 3
+const (
+	MINING_DIFFICULTY = 3
+	MINING_SENDER = "THE BLOCKCHAIN"
+	MINING_REWARD = 1.0
+)
 type Block struct {
 	timestamp    int64
 	nonce        int
@@ -59,13 +63,15 @@ func (b *Block) MarshalJSON() ([]byte, error) {
 }
 
 type Blockchain struct {
-	transactionPool []*Transaction
-	chain           []*Block
+	transactionPool   []*Transaction
+	chain             []*Block
+	blockchainAddress string
 }
 
-func NewBlockchain() *Blockchain {
+func NewBlockchain(blockchainAddress string) *Blockchain {
 	b := &Block{}
 	bc := new(Blockchain)
+	bc.blockchainAddress = blockchainAddress
 	bc.CreateBlock(0, b.Hash())
 	return bc
 }
@@ -125,6 +131,32 @@ func (bc *Blockchain) ProofOfWork() int {
 	return nonce
 }
 
+func (bc *Blockchain) Mining() bool {
+	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD)
+	nonce := bc.ProofOfWork()
+	bc.CreateBlock(nonce, bc.LastHash())
+	log.Println("action=mining, ststus=success")
+	return true
+}
+
+func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
+	var totalAmount float32 = 0.0
+	for _, b := range bc.chain {
+		for _, t := range b.transactions {
+			value := t.value
+			if blockchainAddress == t.recipientAddress {
+				totalAmount += value
+			}
+			if blockchainAddress == t.senderAddress {
+				totalAmount -= value
+			}
+		}
+	}
+	return totalAmount
+}
+
+
+
 type Transaction struct {
 	senderAddress    string
 	recipientAddress string
@@ -159,26 +191,3 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 	})
 }
 
-
-
-
-
-
-
-func init() {
-	log.SetPrefix(("GO: "))
-}
-
-func main() {
-	bc := NewBlockchain()
-	bc.AddTransaction("aaa", "bbb", 10)
-	nonce := bc.ProofOfWork()
-	bc.CreateBlock(nonce, bc.LastHash())
-	bc.Print()
-
-	bc.AddTransaction("ccc", "ddd", 20)
-	bc.AddTransaction("ddd", "eee", 30)
-	nonce = bc.ProofOfWork()
-	bc.CreateBlock(nonce, bc.LastHash())
-	bc.Print()
-}
