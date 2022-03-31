@@ -109,10 +109,10 @@ func (bc *Blockchain) AddTransaction(sender string, recipient string, value floa
 		return true
 	}
 	if bc.VerifyTransaction(senderPublicKey, sig, t) {
-		if bc.CalculateTotalAmount(sender) < value {
-			log.Println("ERROR: Not Enough Gas")
-			return false
-		}
+		// if bc.CalculateTotalAmount(sender) < value {
+		// 	log.Println("ERROR: Not Enough Gas")
+		// 	return false
+		// }
 		bc.transactionPool = append(bc.transactionPool, t)
 		return true
 	}
@@ -122,7 +122,7 @@ func (bc *Blockchain) AddTransaction(sender string, recipient string, value floa
 
 func (bc *Blockchain) VerifyTransaction(senderPublicKey *ecdsa.PublicKey, sig *utils.Signature, t *Transaction) bool {
 	m, _ := json.Marshal(t)
-	h := sha256.Sum256(m)
+	h := sha256.Sum256([]byte(m))
 	return ecdsa.Verify(senderPublicKey, h[:], sig.R, sig.S)
 }
 
@@ -157,7 +157,7 @@ func (bc *Blockchain) Mining() bool {
 	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD, nil, nil)
 	nonce := bc.ProofOfWork()
 	bc.CreateBlock(nonce, bc.LastHash())
-	log.Println("action=mining, ststus=success")
+	log.Println("action=mining, status=success")
 	return true
 }
 
@@ -196,13 +196,13 @@ func (t *Transaction) Print() {
 	fmt.Printf("%s\n", strings.Repeat("-", 40))
 	fmt.Printf(" sender_address      %s\n", t.senderAddress)
 	fmt.Printf(" recipient_address   %s\n", t.recipientAddress)
-	fmt.Printf(" sender_address      %.1f\n", t.value)
+	fmt.Printf(" value               %.1f\n", t.value)
 }
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		SenderAddress    string  `json:"sender_address"`
-		RecipientAddress string  `json:"receiver_address"`
+		RecipientAddress string  `json:"recipient_address"`
 		Value            float32 `json:"value"`
 	}{
 		SenderAddress:    t.senderAddress,
