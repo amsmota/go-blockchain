@@ -5,9 +5,11 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
-	"golang.org/x/crypto/ripemd160"
+	"goblockchain/utils"
 	"github.com/btcsuite/btcutil/base58"
+	"golang.org/x/crypto/ripemd160"
 )
 
 type Wallet struct {
@@ -60,7 +62,11 @@ func (w *Wallet) PrivateKey() *ecdsa.PrivateKey {
 }
 
 func (w *Wallet) PrivateKeyString() string {
-	return w.privateKey.D.String()
+	a := w.privateKey.D.String()
+	b := fmt.Sprintf("%x", w.privateKey.D.Bytes())
+	fmt.Printf("pkA: %x\n", a)
+	fmt.Printf("pkB: %x\n", b)
+	return b
 }
 
 func (w *Wallet) PublicKey() *ecdsa.PublicKey {
@@ -68,26 +74,59 @@ func (w *Wallet) PublicKey() *ecdsa.PublicKey {
 }
 
 func (w *Wallet) PublicKeyString() string {
-	return fmt.Sprintf("%x%x", w.publicKey.X.Bytes(),  w.publicKey.Y.Bytes())
+	return fmt.Sprintf("%x%x", w.publicKey.X.Bytes(), w.publicKey.Y.Bytes())
 }
 
 func (w *Wallet) BlockchainAddress() string {
 	return w.blockchainAddress
 }
 
-func (w *Wallet) Sign(data string) []byte { 
-	hash := sha256.Sum256([]byte(data))
-	sig, err := ecdsa.SignASN1(rand.Reader, w.privateKey, hash[:])
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("signature: %x\n", sig)
-	return sig
+// func (w *Wallet) Sign(data string) []byte {
+// 	hash := sha256.Sum256([]byte(data))
+// 	sig, err := ecdsa.SignASN1(rand.Reader, w.privateKey, hash[:])
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	fmt.Printf("signature: %x\n", sig)
+// 	return sig
+// }
+
+// func (w *Wallet) Verify(data string, sig []byte) bool {
+// 	hash := sha256.Sum256([]byte(data))
+// 	valid := ecdsa.VerifyASN1(&w.privateKey.PublicKey, hash[:], sig)
+// 	fmt.Println("signature verified:", valid)
+// 	return valid
+// }
+
+type Transaction struct {
+	senderPrivateKey           *ecdsa.PrivateKey
+	senderPublicKey            *ecdsa.PublicKey
+	senderBlockchainAddress    string
+	recipientBlockchainAddress string
+	value                      float32
 }
 
-func (w *Wallet) Verify(data string, sig []byte) bool { 
-	hash := sha256.Sum256([]byte(data))
-	valid := ecdsa.VerifyASN1(&w.privateKey.PublicKey, hash[:], sig)
-	fmt.Println("signature verified:", valid)
-	return valid
+func NewTransaction(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey, sender string, recipient string, value float32) *Transaction {
+	return &Transaction{privateKey, publicKey, sender, recipient, value}
 }
+
+func (t *Transaction) GenerateSignature() *utils.Signature {
+	m, _ := json.Marshal(t)
+	h := sha256.Sum256([]byte(m))
+	r, s, _ := ecdsa.Sign(rand.Reader, t.senderPrivateKey, h[:])
+	return &utils.Signature{r, s}
+}
+
+func (t *Transaction) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Sender    string  `json:"sender_blockchain_address"`
+		Recipient string  `json:"recipient_blockchain_address"`
+		Value     float32 `json:"value"`
+	}{
+		Sender:    t.senderBlockchainAddress,
+		Recipient: t.recipientBlockchainAddress,
+		Value:     t.value,
+	})
+}
+
+
