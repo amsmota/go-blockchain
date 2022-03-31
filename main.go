@@ -16,13 +16,18 @@ func main() {
 	walletA := wallet.NewWallet()
 	walletB := wallet.NewWallet()
 
-	// Wallet
-	t := wallet.NewTransaction(walletA.PrivateKey(), walletA.PublicKey(),
-		walletA.BlockchainAddress(), walletB.BlockchainAddress(), 1.0)
+	// WalletA to WalletB transaction
+	t := walletA.CreateTransaction(walletB.BlockchainAddress(), 1.0)
+	walletA.SignTransaction(t)
+
 	// Blockchain
 	bc := blockchain.NewBlockchain(walletM.BlockchainAddress())
-	added := bc.AddTransaction(walletA.BlockchainAddress(), walletB.BlockchainAddress(), 1.0,
-		walletA.PublicKey(), t.GenerateSignature())
+
+	// Bad guy does this, gives ERROR: Verifiy Transaction
+	// t.Value = 100000
+	// walletB.SignTransaction(t)
+
+	added := bc.AddTransaction(t)
 	fmt.Println("Added: ", added)
 
 	bc.Mining()

@@ -7,8 +7,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	. "goblockchain/common"
+
 	"github.com/btcsuite/btcutil/base58"
-	"goblockchain/utils"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -81,6 +82,23 @@ func (w *Wallet) BlockchainAddress() string {
 	return w.blockchainAddress
 }
 
+func (w *Wallet) CreateTransaction(recipient string, value float32) *Transaction {
+	t := new(Transaction) // new() return a pointer
+	t.SenderPrivateKey = w.privateKey
+	t.SenderPublicKey = w.publicKey
+	t.SenderAddress = w.blockchainAddress
+	t.RecipientAddress = recipient
+	t.Value = value
+	return t
+}
+
+func (w *Wallet) SignTransaction(t *Transaction) {
+	m, _ := json.Marshal(t)
+	h := sha256.Sum256([]byte(m))
+	r, s, _ := ecdsa.Sign(rand.Reader, w.privateKey, h[:])
+	t.Signature = &Signature{R: r, S: s}
+}
+
 // func (w *Wallet) Sign(data string) []byte {
 // 	hash := sha256.Sum256([]byte(data))
 // 	sig, err := ecdsa.SignASN1(rand.Reader, w.privateKey, hash[:])
@@ -98,33 +116,3 @@ func (w *Wallet) BlockchainAddress() string {
 // 	return valid
 // }
 
-type Transaction struct {
-	senderPrivateKey *ecdsa.PrivateKey
-	senderPublicKey  *ecdsa.PublicKey
-	senderAddress    string
-	recipientAddress string
-	value            float32
-}
-
-func NewTransaction(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey, sender string, recipient string, value float32) *Transaction {
-	return &Transaction{privateKey, publicKey, sender, recipient, value}
-}
-
-func (t *Transaction) GenerateSignature() *utils.Signature {
-	m, _ := json.Marshal(t)
-	h := sha256.Sum256([]byte(m))
-	r, s, _ := ecdsa.Sign(rand.Reader, t.senderPrivateKey, h[:])
-	return &utils.Signature{R: r, S: s}
-}
-
-func (t *Transaction) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		SenderAddress    string  `json:"sender_address"`
-		RecipientAddress string  `json:"recipient_address"`
-		Value            float32 `json:"value"`
-	}{
-		SenderAddress:    t.senderAddress,
-		RecipientAddress: t.recipientAddress,
-		Value:            t.value,
-	})
-}
