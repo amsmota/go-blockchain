@@ -7,9 +7,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	. "goblockchain/common"
-
 	"github.com/btcsuite/btcutil/base58"
+	. "goblockchain/common"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -63,11 +62,7 @@ func (w *Wallet) PrivateKey() *ecdsa.PrivateKey {
 }
 
 func (w *Wallet) PrivateKeyString() string {
-	a := w.privateKey.D.String()
-	b := fmt.Sprintf("%x", w.privateKey.D.Bytes())
-	fmt.Printf("pkA: %x\n", a)
-	fmt.Printf("pkB: %x\n", b)
-	return b
+	return fmt.Sprintf("%x", w.privateKey.D.Bytes())
 }
 
 func (w *Wallet) PublicKey() *ecdsa.PublicKey {
@@ -80,6 +75,18 @@ func (w *Wallet) PublicKeyString() string {
 
 func (w *Wallet) BlockchainAddress() string {
 	return w.blockchainAddress
+}
+
+func (w *Wallet) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		PrivateKey        string `json:"private_key"`
+		PublicKey         string `json:"public_key"`
+		BlockchainAddress string `json:"blockchain_address"`
+	}{
+		PrivateKey:        w.PrivateKeyString(),
+		PublicKey:         w.PublicKeyString(),
+		BlockchainAddress: w.BlockchainAddress(),
+	})
 }
 
 func (w *Wallet) CreateTransaction(recipient string, value float32) *Transaction {
@@ -115,4 +122,3 @@ func (w *Wallet) SignTransaction(t *Transaction) {
 // 	fmt.Println("signature verified:", valid)
 // 	return valid
 // }
-
