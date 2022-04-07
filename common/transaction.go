@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -26,46 +25,50 @@ func (t *Transaction) Print() {
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		SenderAddress    string  `json:"sender_address"`
-		RecipientAddress string  `json:"recipient_address"`
-		Value            float32 `json:"value"`
+		SenderPublicKey  *ecdsa.PublicKey `json:"sender_public_key"`
+		SenderAddress    string           `json:"sender_address"`
+		RecipientAddress string           `json:"recipient_address"`
+		Value            float32          `json:"value"`
+		Signature        *Signature           `json:"signature"`
 	}{
+		SenderPublicKey:  t.SenderPublicKey,
 		SenderAddress:    t.SenderAddress,
 		RecipientAddress: t.RecipientAddress,
 		Value:            t.Value,
+		Signature:        t.Signature,
 	})
 }
 
-func (t *Transaction) UnmarshalJSON(mt []byte) (error) {
-	type T2 struct {
-		SenderAddress    string  `json:"sender_address"`
-		RecipientAddress string  `json:"recipient_address"`
-		Value            float32 `json:"value"`
-	}
-	var tt T2
-	if err :=  json.Unmarshal(mt, &tt); err != nil {
-		log.Fatal(err)
-		panic(err)
-	}
-	t.RecipientAddress = tt.RecipientAddress
-	t.SenderAddress = tt.SenderAddress
-	t.Value = tt.Value
+// func (t *Transaction) UnmarshalJSON(mt []byte) error {
+// 	type T2 struct {
+// 		SenderAddress    string  `json:"sender_address"`
+// 		RecipientAddress string  `json:"recipient_address"`
+// 		Value            float32 `json:"value"`
+// 	}
+// 	var tt T2
+// 	if err := json.Unmarshal(mt, &tt); err != nil {
+// 		log.Fatal(err)
+// 		panic(err)
+// 	}
+// 	t.RecipientAddress = tt.RecipientAddress
+// 	t.SenderAddress = tt.SenderAddress
+// 	t.Value = tt.Value
 
-	return nil
-}
+// 	return nil
+// }
 
 type TransactionRequest struct {
-	SenderPrivateKey           *string `json:"sender_private_key"`
-	SenderBlockchainAddress    *string `json:"sender_blockchain_address"`
-	RecipientBlockchainAddress *string `json:"recipient_blockchain_address"`
-	SenderPublicKey            *string `json:"sender_public_key"`
-	Value                      *string `json:"value"`
+	SenderPublicKey  *string `json:"sender_public_key"`
+	SenderAddress    *string `json:"sender_address"`
+	RecipientAddress *string `json:"recipient_address"`
+	Value            *float32 `json:"value"`
+	Signature        *string
 }
 
 // func (t *TransactionRequest) MarshalJSON() ([]byte, error) {
 // 	return json.Marshal(struct {
-// 		SenderAddress    *string  `json:"sender_address"`
-// 		RecipientAddress *string  `json:"recipient_address"`
+// 		SenderAddress    *string `json:"sender_address"`
+// 		RecipientAddress *string `json:"recipient_address"`
 // 		Value            *string `json:"value"`
 // 	}{
 // 		SenderAddress:    t.SenderBlockchainAddress,
@@ -75,9 +78,8 @@ type TransactionRequest struct {
 // }
 
 func (tr *TransactionRequest) Validate() bool {
-	if tr.SenderPrivateKey == nil ||
-		tr.SenderBlockchainAddress == nil ||
-		tr.RecipientBlockchainAddress == nil ||
+	if tr.SenderAddress == nil ||
+		tr.RecipientAddress == nil ||
 		tr.SenderPublicKey == nil ||
 		tr.Value == nil {
 		return false

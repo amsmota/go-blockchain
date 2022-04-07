@@ -91,7 +91,7 @@ func (w *Wallet) MarshalJSON() ([]byte, error) {
 
 func (w *Wallet) CreateTransaction(recipient string, value float32) *Transaction {
 	t := new(Transaction) // new() return a pointer
-	t.SenderPrivateKey = w.privateKey
+	//t.SenderPrivateKey = w.privateKey
 	t.SenderPublicKey = w.publicKey
 	t.SenderAddress = w.blockchainAddress
 	t.RecipientAddress = recipient

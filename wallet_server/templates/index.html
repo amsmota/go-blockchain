@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>Wallet</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script type="module" src="https://github.com/xloem/bitcoinjs-lib-browser/blob/master/bitcoinjs.min.js"></script>
     <script>
         $(function () {
             $.ajax({
@@ -21,7 +22,7 @@
                 }
             })
 
-            $('#send_money_button').click(function () {
+            $('#send_money_button').click(async function () {
                 let confirm_text = 'Are you sure to send?'
                 let confirm_result = confirm(confirm_text)
                 if (confirm_result !== true) {
@@ -29,12 +30,62 @@
                     return
                 }
                 let transaction_data = {
-                    'sender_private_key': $('#private_key').val(),
-                    'sender_blockchain_address': $('#blockchain_address').val(),
-                    'recipient_blockchain_address': $('#recipient_blockchain_address').val(),
+                    //'sender_private_key': $('#private_key').val(),
                     'sender_public_key': $('#public_key').val(),
-                    'value': $('#send_amount').val(),
+                    'sender_address': $('#blockchain_address').val(),
+                    'recipient_address': $('#recipient_blockchain_address').val(),
+                    'value': +$('#send_amount').val(),
                 }
+
+                var address = new Bitcoin.Address(Crypto.util.hexToBytes(hash160))
+                address.version = 0x00 //testnet would be 0x6F
+                address = address.toString()
+
+                const enc = new TextEncoder();
+                const jtd = JSON.stringify(transaction_data)
+                const encodedMessage = enc.encode(jtd);
+                const keyPair = window.crypto.subtle.generateKey(
+                    {
+                        name: "ECDSA",
+                        namedCurve: "P-384"
+                    },
+                    true,
+                    ["sign", "verify"]
+                );
+                const {
+                    privateKey,
+                    publicKey
+                } = await keyPair;
+                // const byteArray = new TextEncoder().encode($('#public_key').val());
+                // const buffer = byteArray.buffer;
+                // const privateKey = window.crypto.subtle.unwrapKey(
+                //     "raw",
+                //     buffer,
+                //     {
+                //         name: "ECDSA",
+                //         namedCurve: "P-384",
+                //     },
+                //     true,
+                //     ["encrypt", "decrypt"]
+                // );
+
+                let sig = await (async () => {
+                    const signature = await window.crypto.subtle.sign(
+                        {
+                            name: "ECDSA",
+                            hash: { name: "SHA-384" },
+                        },
+                        privateKey,
+                        encodedMessage
+                    );
+                    // const signatureValid = await window.crypto.subtle.verify("RSASSA-PKCS1-v1_5", publicKey, signature, encodedMessage);
+                    return signature
+                })()
+
+                let signature = btoa(sig);
+                transaction_data.signature = signature
+
+                console.info(transaction_data)
 
                 $.ajax({
                     url: '/transaction',
@@ -50,8 +101,43 @@
                         console.error(err)
                     }
                 })
-            })
+
+
+            }
+
+
+            )
+
         })
+    </script>
+    <script>
+        async function Sign(transaction_data) {
+            const enc = new TextEncoder();
+            const encodedMessage = enc.encode(transaction_data);
+            const keyPair = window.crypto.subtle.generateKey({
+                name: "RSASSA-PKCS1-v1_5",
+                modulusLength: 4096,
+                publicExponent: new Uint8Array([1, 0, 1]),
+                hash: "SHA-256"
+            },
+                true,
+                ["sign", "verify"]
+            );
+            (async () => {
+                const {
+                    privateKey,
+                    publicKey
+                } = await keyPair;
+                const signature = await window.crypto.subtle.sign(
+                    "RSASSA-PKCS1-v1_5",
+                    privateKey,
+                    encodedMessage
+                );
+                // const signatureValid = await window.crypto.subtle.verify("RSASSA-PKCS1-v1_5", publicKey, signature, encodedMessage);
+                console.log("SSS" + signature);
+                return signature
+            })()
+        }
     </script>
 </head>
 

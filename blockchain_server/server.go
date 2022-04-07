@@ -1,12 +1,11 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	. "goblockchain/blockchain"
 	"goblockchain/common"
 	"goblockchain/wallet"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -53,32 +52,40 @@ func (bcs *BlockchainServer) GetChain(res http.ResponseWriter, req *http.Request
 	}
 }
 
+func (bcs *BlockchainServer) TransactionPool(res http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		res.Header().Add("Content-Type", "application/json")
+		bc := bcs.GetBlockchain()
+		tp := bc.CopyTransactionPool()
+		m, _ := json.Marshal(tp)
+		io.WriteString(res, string(m[:]))
+	}
+}
+
 func (bcs *BlockchainServer) Transactions(res http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
 		// res.Header().Add("Content-Type", "application/json")
 
-		responseData, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(string(responseData))
-
 		var t common.Transaction
-		t.UnmarshalJSON(responseData)
 
-		// fmt.Println(string(mt.Error()))
-
-
-
-		// decoder := json.NewDecoder(req.Body)
-		// var t common.Transaction
-		// decoder.Decode(&t)
+		// responseData, err := ioutil.ReadAll(req.Body)
 		// if err != nil {
-		// 	log.Printf("ERROR: %v", err)
-		// 	io.WriteString(res, string(common.JsonStatus("fail")))
-		// 	return
+		// 	log.Fatal(err)
 		// }
+		// fmt.Println(string(responseData))
+		// t.UnmarshalJSON(responseData)
+		// // fmt.Println(string(mt.Error()))
+
+		decoder := json.NewDecoder(req.Body)
+		err := decoder.Decode(&t)
+
+		if err != nil {
+			log.Printf("ERROR: %v", err)
+			io.WriteString(res, string(common.JsonStatus("fail")))
+			return
+		}
 		// value, _ := strconv.ParseFloat(*t.Value, 32)
 		nt := NewTransaction(t.SenderAddress, t.RecipientAddress, t.Value)
 
@@ -91,6 +98,7 @@ func (bcs *BlockchainServer) Transactions(res http.ResponseWriter, req *http.Req
 
 func (bcs *BlockchainServer) Run() {
 	http.HandleFunc("/blockchain", bcs.GetChain)
+	http.HandleFunc("/transactionPool", bcs.TransactionPool)
 	http.HandleFunc("/transactions", bcs.Transactions)
 
 	log.Println("BlockchainServer listening on 0.0.0.0:" + bcs.PortStr())

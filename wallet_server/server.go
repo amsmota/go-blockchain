@@ -66,6 +66,7 @@ func (ws *WalletServer) Wallet(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+
 func (ws *WalletServer) Transaction(res http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
@@ -96,13 +97,16 @@ func (ws *WalletServer) Transaction(res http.ResponseWriter, req *http.Request) 
 
 		res.Header().Add("Content-Type", "application/json")
 
-		value, _ := strconv.ParseFloat(*t.Value, 32)
-		transaction := TheWallet.CreateTransaction(*t.RecipientBlockchainAddress, float32(value))
+		// signature := common.SignatureFromString(*t.Signature)
+
+		transaction := TheWallet.CreateTransaction(*t.RecipientAddress, *t.Value)
 		TheWallet.SignTransaction(transaction)
+
+		// transaction.Signature = signature
+
 
 		m, _ := json.Marshal(transaction)
 		buf := bytes.NewBuffer(m)
-
 		response, err := http.Post(ws.Gateway()+"/transactions", "application/json", buf)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
