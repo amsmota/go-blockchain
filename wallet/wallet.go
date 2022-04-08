@@ -91,20 +91,22 @@ func (w *Wallet) MarshalJSON() ([]byte, error) {
 
 func (w *Wallet) CreateTransaction(recipient string, value float32) *Transaction {
 	t := new(Transaction) // new() return a pointer
-	t.SenderPrivateKey = w.privateKey
 	t.SenderPublicKey = w.publicKey
-	t.SenderAddress = w.blockchainAddress
-	t.RecipientAddress = recipient
-	t.Value = value
+	t.Tx.SenderAddress = w.blockchainAddress
+	t.Tx.RecipientAddress = recipient
+	t.Tx.Value = value
 	return t
 }
 
 func (w *Wallet) SignTransaction(t *Transaction) {
-	m, _ := json.Marshal(t)
+	tx := t.Tx
+	m, _ := json.Marshal(tx)
 	h := sha256.Sum256([]byte(m))
 	r, s, _ := ecdsa.Sign(rand.Reader, w.privateKey, h[:])
 	t.Signature = &Signature{R: r, S: s}
 }
+
+//SHOULD USE THE ASN1 BELOW?
 
 // func (w *Wallet) Sign(data string) []byte {
 // 	hash := sha256.Sum256([]byte(data))

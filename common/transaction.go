@@ -2,54 +2,69 @@ package common
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 )
 
-type Transaction struct {
-	SenderPrivateKey *ecdsa.PrivateKey
-	SenderPublicKey  *ecdsa.PublicKey
+type BlockTransaction struct {
 	SenderAddress    string
 	RecipientAddress string
 	Value            float32
-	Signature        *Signature
 }
 
-func (t *Transaction) Print() {
+func (t *BlockTransaction) Print() {
 	fmt.Printf("%s\n", strings.Repeat("-", 40))
 	fmt.Printf(" sender_address      %s\n", t.SenderAddress)
 	fmt.Printf(" recipient_address   %s\n", t.RecipientAddress)
 	fmt.Printf(" value               %.1f\n", t.Value)
 }
 
+type Transaction struct {
+	SenderPublicKey *ecdsa.PublicKey
+	Signature       *Signature
+	Tx              BlockTransaction
+}
+
 func (t *Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		SenderAddress    string  `json:"sender_address"`
-		RecipientAddress string  `json:"recipient_address"`
-		Value            float32 `json:"value"`
+		SenderPublicKey  *ecdsa.PublicKey `json:"sender_public_key"`
+		Signature        *Signature       `json:"signature"`
+		SenderAddress    string           `json:"sender_address"`
+		RecipientAddress string           `json:"recipient_address"`
+		Value            float32          `json:"value"`
 	}{
-		SenderAddress:    t.SenderAddress,
-		RecipientAddress: t.RecipientAddress,
-		Value:            t.Value,
+		SenderPublicKey:  t.SenderPublicKey,
+		Signature:        t.Signature,
+		SenderAddress:    t.Tx.SenderAddress,
+		RecipientAddress: t.Tx.RecipientAddress,
+		Value:            t.Tx.Value,
 	})
 }
 
-func (t *Transaction) UnmarshalJSON(mt []byte) (error) {
-	type T2 struct {
-		SenderAddress    string  `json:"sender_address"`
-		RecipientAddress string  `json:"recipient_address"`
-		Value            float32 `json:"value"`
+func (t *Transaction) UnmarshalJSON(mt []byte) error {
+	type ttt struct {
+		SenderPublicKey  json.RawMessage `json:"sender_public_key"`
+		Signature        *Signature      `json:"signature"`
+		SenderAddress    string          `json:"sender_address"`
+		RecipientAddress string          `json:"recipient_address"`
+		Value            float32         `json:"value"`
 	}
-	var tt T2
-	if err :=  json.Unmarshal(mt, &tt); err != nil {
-		log.Fatal(err)
-		panic(err)
+	tt := new(ttt)
+	if err := json.Unmarshal(mt, &tt); err != nil {
+		return err
 	}
-	t.RecipientAddress = tt.RecipientAddress
-	t.SenderAddress = tt.SenderAddress
-	t.Value = tt.Value
+
+	var spk *ecdsa.PublicKey
+	json.Unmarshal(tt.SenderPublicKey, &spk)
+	spk.Curve = elliptic.P256()
+
+	t.SenderPublicKey = spk
+	t.Signature = tt.Signature
+	t.Tx.SenderAddress = tt.SenderAddress
+	t.Tx.RecipientAddress = tt.RecipientAddress
+	t.Tx.Value = tt.Value
 
 	return nil
 }
@@ -61,18 +76,6 @@ type TransactionRequest struct {
 	SenderPublicKey            *string `json:"sender_public_key"`
 	Value                      *string `json:"value"`
 }
-
-// func (t *TransactionRequest) MarshalJSON() ([]byte, error) {
-// 	return json.Marshal(struct {
-// 		SenderAddress    *string  `json:"sender_address"`
-// 		RecipientAddress *string  `json:"recipient_address"`
-// 		Value            *string `json:"value"`
-// 	}{
-// 		SenderAddress:    t.SenderBlockchainAddress,
-// 		RecipientAddress: t.RecipientBlockchainAddress,
-// 		Value:            t.Value,
-// 	})
-// }
 
 func (tr *TransactionRequest) Validate() bool {
 	if tr.SenderPrivateKey == nil ||

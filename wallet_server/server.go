@@ -19,10 +19,12 @@ const tempDir = "wallet_server/templates"
 type WalletServer struct {
 	port    uint16
 	gateway string
+	wallet  wallet.Wallet
 }
 
 func NewWalletServer(port uint16, gateway string) *WalletServer {
-	return &WalletServer{port, gateway}
+	wallet := wallet.NewWallet()
+	return &WalletServer{port, gateway, *wallet}
 }
 
 func (ws *WalletServer) Port() uint16 {
@@ -51,14 +53,11 @@ func (ws *WalletServer) Index(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-var TheWallet *wallet.Wallet
-
 func (ws *WalletServer) Wallet(res http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
 		res.Header().Add("Content-Type", "application/json")
-		TheWallet = wallet.NewWallet()
-		m, _ := TheWallet.MarshalJSON()
+		m, _ := ws.wallet.MarshalJSON()
 		io.WriteString(res, string(m[:]))
 	default:
 		res.WriteHeader(http.StatusBadRequest)
@@ -69,7 +68,6 @@ func (ws *WalletServer) Wallet(res http.ResponseWriter, req *http.Request) {
 func (ws *WalletServer) Transaction(res http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
-		// res.Header().Add("Content-Type", "application/json")
 		decoder := json.NewDecoder(req.Body)
 		var t common.TransactionRequest
 		err := decoder.Decode(&t)
@@ -78,27 +76,16 @@ func (ws *WalletServer) Transaction(res http.ResponseWriter, req *http.Request) 
 			io.WriteString(res, string(jsonUtils.JsonStatus("fail")))
 			return
 		}
-		// if !t.Validate() {
-		// 	log.Println("ERROR: missing field(s)")
-		// 	io.WriteString(res, string(jsonUtils.JsonStatus("fail")))
-		// 	return
-		// }
-
-		// publicKey := ecdsa.PublicKeyFromString(*t.SenderPublicKey)
-		// privateKey := ecdsa.PrivateKeyFromString(*t.SenderPrivateKey, publicKey)
-		// value, err := strconv.ParseFloat(*t.Value, 32)
-		// if err != nil {
-		// 	log.Println("ERROR: parse error")
-		// 	io.WriteString(res, string(jsonUtils.JsonStatus("fail")))
-		// 	return
-		// }
-		// value32 := float32(value)
+		if !t.Validate() {
+			log.Println("ERROR: missing field(s)")
+			io.WriteString(res, string(jsonUtils.JsonStatus("fail")))
+			return
+		}
 
 		res.Header().Add("Content-Type", "application/json")
-
 		value, _ := strconv.ParseFloat(*t.Value, 32)
-		transaction := TheWallet.CreateTransaction(*t.RecipientBlockchainAddress, float32(value))
-		TheWallet.SignTransaction(transaction)
+		transaction := ws.wallet.CreateTransaction(*t.RecipientBlockchainAddress, float32(value))
+		ws.wallet.SignTransaction(transaction)
 
 		m, _ := json.Marshal(transaction)
 		buf := bytes.NewBuffer(m)
@@ -129,6 +116,6 @@ func (ws *WalletServer) Run() {
 	http.HandleFunc("/wallet", ws.Wallet)
 	http.HandleFunc("/transaction", ws.Transaction)
 
-	log.Println("WalletServer listening on 0.0.0.0:" + ws.PortStr())
-	log.Fatal(http.ListenAndServe("0.0.0.0:"+ws.PortStr(), nil))
+	log.Println("WalletServer listening on localhost:" + ws.PortStr())
+	log.Fatal(http.ListenAndServe("localhost:"+ws.PortStr(), nil))
 }

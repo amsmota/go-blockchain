@@ -21,19 +21,16 @@ type Block struct {
 	timestamp    int64
 	nonce        int
 	previousHash [32]byte
-	transactions []*Transaction
+	transactions []*BlockTransaction
 }
 
-func NewBlock(nonce int, previousHash [32]byte, transactions []*Transaction) *Block { // * is a pointer, & is a reference
+func NewBlock(nonce int, previousHash [32]byte, transactions []*BlockTransaction) *Block { // * is a pointer, & is a reference
 	b := new(Block) // new() return a pointer
 	b.timestamp = time.Now().UnixNano()
 	b.nonce = nonce
 	b.previousHash = previousHash
 	b.transactions = transactions
 	return b
-	// return &Block {
-	// 	timestamp: time.Now().UnixNano(),
-	// }
 }
 
 func (b *Block) Print() { // create method Print in Block
@@ -53,10 +50,10 @@ func (b *Block) Hash() [32]byte {
 
 func (b *Block) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Timestamp    int64          `json:"timestamp"`
-		Nonce        int            `json:"nonce"`
-		PreviousHash string         `json:"previous_hash"`
-		Transactions []*Transaction `json:"transactions"`
+		Timestamp    int64               `json:"timestamp"`
+		Nonce        int                 `json:"nonce"`
+		PreviousHash string              `json:"previous_hash"`
+		Transactions []*BlockTransaction `json:"transactions"`
 	}{
 		Timestamp:    b.timestamp,
 		Nonce:        b.nonce,
@@ -66,7 +63,7 @@ func (b *Block) MarshalJSON() ([]byte, error) {
 }
 
 type Blockchain struct {
-	transactionPool   []*Transaction
+	transactionPool   []*BlockTransaction
 	chain             []*Block
 	blockchainAddress string
 	port              uint16
@@ -84,7 +81,7 @@ func NewBlockchain(blockchainAddress string, port uint16) *Blockchain {
 func (bc *Blockchain) CreateBlock(nonce int, previousHash [32]byte) *Block {
 	b := NewBlock(nonce, previousHash, bc.transactionPool)
 	bc.chain = append(bc.chain, b)
-	bc.transactionPool = []*Transaction{}
+	bc.transactionPool = []*BlockTransaction{}
 	return b
 }
 
@@ -112,7 +109,7 @@ func (bc *Blockchain) LastHash() [32]byte {
 	return bc.chain[len(bc.chain)-1].Hash()
 }
 
-func (bc *Blockchain) AddTransaction(t *Transaction) bool {
+func (bc *Blockchain) AddTransaction(t *BlockTransaction) bool {
 	sender := t.SenderAddress
 	// senderPublicKey := t.SenderPublicKey
 
@@ -120,6 +117,8 @@ func (bc *Blockchain) AddTransaction(t *Transaction) bool {
 		bc.transactionPool = append(bc.transactionPool, t)
 		return true
 	}
+
+	// VERIFY HERE OR ON THE BC_SERVER?
 	if true { //bc.VerifyTransaction(senderPublicKey, t.Signature, t) {
 		// if bc.CalculateTotalAmount(sender) < value {
 		// 	log.Println("ERROR: Not Enough Gas")
@@ -132,14 +131,14 @@ func (bc *Blockchain) AddTransaction(t *Transaction) bool {
 	return false
 }
 
-func (bc *Blockchain) VerifyTransaction(senderPublicKey *ecdsa.PublicKey, sig *Signature, t *Transaction) bool {
+func VerifyTransaction(senderPublicKey *ecdsa.PublicKey, sig *Signature, t *BlockTransaction) bool {
 	m, _ := json.Marshal(t)
 	h := sha256.Sum256([]byte(m))
 	return ecdsa.Verify(senderPublicKey, h[:], sig.R, sig.S)
 }
 
-func (bc *Blockchain) CopyTransactionPool() []*Transaction {
-	transactions := make([]*Transaction, 0)
+func (bc *Blockchain) CopyTransactionPool() []*BlockTransaction {
+	transactions := make([]*BlockTransaction, 0)
 	for _, t := range bc.transactionPool {
 		transactions = append(transactions,
 			NewTransaction(t.SenderAddress, t.RecipientAddress, t.Value))
@@ -147,7 +146,7 @@ func (bc *Blockchain) CopyTransactionPool() []*Transaction {
 	return transactions
 }
 
-func (bc *Blockchain) ValidProof(nonce int, previousHash [32]byte, transactions []*Transaction, dificulty int) bool {
+func (bc *Blockchain) ValidProof(nonce int, previousHash [32]byte, transactions []*BlockTransaction, dificulty int) bool {
 	zeros := strings.Repeat("0", dificulty)
 	guessBlock := Block{0, nonce, previousHash, transactions}
 	guessHash := fmt.Sprintf("%x", guessBlock.Hash())
@@ -189,8 +188,8 @@ func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
 	return totalAmount
 }
 
-func NewTransaction(sender string, recipient string, value float32) *Transaction {
-	t := new(Transaction)
+func NewTransaction(sender string, recipient string, value float32) *BlockTransaction {
+	t := new(BlockTransaction)
 	t.SenderAddress = sender
 	t.RecipientAddress = recipient
 	t.Value = value
