@@ -8,6 +8,7 @@ import (
 	"goblockchain/wallet"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"path"
@@ -111,10 +112,38 @@ func (ws *WalletServer) Transaction(res http.ResponseWriter, req *http.Request) 
 	}
 }
 
+
+func (ws *WalletServer) Amount(res http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		// res.Header().Add("Content-Type", "application/json")
+
+		response, err := http.Get(ws.Gateway()+"/amounts?address=" + ws.wallet.BlockchainAddress())
+		amount, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			log.Printf("ERROR: %v", err)
+			res.WriteHeader(http.StatusInternalServerError)
+			io.WriteString(res, string(jsonUtils.JsonStatus("fail")))
+			return
+		}
+
+		res.Header().Add("status", string(response.StatusCode))
+		io.WriteString(res, string(amount))
+		
+	default:
+		res.WriteHeader(http.StatusBadRequest)
+		log.Println("ERROR: Invalid HTTP Method")
+	}
+}
+
+
+
+
 func (ws *WalletServer) Run() {
 	http.HandleFunc("/", ws.Index)
 	http.HandleFunc("/wallet", ws.Wallet)
 	http.HandleFunc("/transaction", ws.Transaction)
+	http.HandleFunc("/amount", ws.Amount)
 
 	log.Println("WalletServer listening on localhost:" + ws.PortStr())
 	log.Fatal(http.ListenAndServe("localhost:"+ws.PortStr(), nil))

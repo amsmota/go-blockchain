@@ -51,6 +51,21 @@
                     }
                 })
             })
+           
+            $('#reload_wallet').click(function () {
+                $.ajax({
+                    url: '/amount',
+                    type: 'GET',
+                    success: function (resp) {
+                        $('#wallet_amount').text(resp)
+                    },
+                    error: function (err) {
+                        alert("Fail!!!")
+                        console.error(err)
+                    }
+                })
+            })
+ 
         })
     </script>
 </head>

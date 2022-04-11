@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	. "goblockchain/blockchain"
 	"goblockchain/common"
 	"goblockchain/wallet"
@@ -83,7 +84,7 @@ func (bcs *BlockchainServer) Transactions(res http.ResponseWriter, req *http.Req
 			io.WriteString(res, string(common.JsonStatus("fail")))
 			return
 		}
-		
+
 		bc := bcs.GetBlockchain()
 		bc.AddTransaction(nt)
 		m, _ := bc.MarshalJSON()
@@ -91,10 +92,38 @@ func (bcs *BlockchainServer) Transactions(res http.ResponseWriter, req *http.Req
 	}
 }
 
+func (bcs *BlockchainServer) Amounts(res http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		address := req.URL.Query().Get("address")
+		if address == "" {
+			// say bye bye
+		}
+
+		res.Header().Add("Content-Type", "application/json")
+		bc := bcs.GetBlockchain()
+		amount := bc.CalculateTotalAmount(address)
+
+		io.WriteString(res, fmt.Sprintf("%f", amount))
+
+	default:
+		res.WriteHeader(http.StatusBadRequest)
+		log.Println("ERROR: Invalid HTTP Method")
+
+	}
+
+}
+
 func (bcs *BlockchainServer) Run() {
 	http.HandleFunc("/blockchain", bcs.GetChain)
 	http.HandleFunc("/transactionPool", bcs.TransactionPool)
 	http.HandleFunc("/transactions", bcs.Transactions)
+	http.HandleFunc("/amounts", bcs.Amounts)
+
+	log.Println("BlockchainServer listening on localhost:" + bcs.PortStr())
+
+	log.Println("Start Mining...")
+	bcs.GetBlockchain().StartMining()
 
 	log.Println("BlockchainServer listening on localhost:" + bcs.PortStr())
 	log.Fatal(http.ListenAndServe("localhost:"+bcs.PortStr(), nil))
