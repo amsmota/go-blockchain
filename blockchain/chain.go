@@ -5,6 +5,7 @@ import (
 	"fmt"
 	. "goblockchain/common"
 	"log"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -99,10 +100,11 @@ func (bc *Blockchain) AddTransaction(t *Transaction) bool {
 		log.Println("ERROR: Verifiy Transaction")
 		return false
 	}
-	// if bc.CalculateTotalAmount(t.Tx.SenderAddress) < t.Tx.Value {
-	// 	log.Println("ERROR: Not Enough Gas")
-	// 	return false
-	// }
+
+	if bc.CalculateTotalAmount(t.Tx.SenderAddress) < t.Tx.Value {
+		log.Println("ERROR: Not Enough Gas")
+		return false
+	}
 
 	bc.transactionPool = append(bc.transactionPool, &t.Tx)
 	return true
@@ -146,26 +148,36 @@ func (bc *Blockchain) Mining() bool {
 	bc.muxMining.Lock()
 	defer bc.muxMining.Unlock()
 
-	if len(bc.transactionPool) == 0 {
+	t := NewTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD)
+	tt := Transaction{Tx: *t}
+	created := bc.AddTransaction(&tt)
+	if !created {
 		return false
 	}
 
-	t := NewTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD)
-	tt := Transaction{Tx: *t}
-	bc.AddTransaction(&tt)
 	nonce := bc.ProofOfWork()
+	conflict := bc.ResolveConflicts()
+	if conflict {
+		return false
+	}
+
 	bc.CreateBlock(nonce, bc.LastHash())
 	log.Println("action=mining, status=success")
-
-	bc.NodeSyncConsensus()
 
 	return true
 }
 
 func (bc *Blockchain) StartMining() {
+	// delay to emulate diferent hardware
+	rand.Seed(time.Now().UnixNano())
+	n := rand.Intn(10)                  // n will be between 0 and 10
+	d := time.Duration(n) * time.Second // delay
+	time.Sleep(d)                       // sleep for n sconds
+
 	mined := bc.Mining()
 	log.Printf("Mining: %t", mined)
-	_ = time.AfterFunc(time.Second*MINING_TIMER_SEC, bc.StartMining)
+	f := time.Minute*MINING_TIMER_MIN - d
+	_ = time.AfterFunc(f, bc.StartMining)
 }
 
 func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
@@ -192,11 +204,9 @@ func (bc *Blockchain) ValidChain(chain []*Block) bool {
 		if b.previousHash != preBlock.Hash() {
 			return false
 		}
-
 		if !bc.ValidProof(b.Nonce(), b.PreviousHash(), b.Transactions(), MINING_DIFFICULTY) {
 			return false
 		}
-
 		preBlock = b
 		currentIndex += 1
 	}
@@ -217,10 +227,9 @@ func (bc *Blockchain) ResolveConflicts() bool {
 
 	if longestChain != nil {
 		bc.chain = longestChain
-		log.Printf("Resolve confilicts replaced")
+		log.Printf("Resolve conflicts replaced")
 		return true
 	}
 	log.Printf("Resolve conflicts not replaced")
 	return false
 }
-

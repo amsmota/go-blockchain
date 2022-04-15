@@ -15,7 +15,7 @@ const (
 	MINING_DIFFICULTY = 3
 	MINING_SENDER     = "THE BLOCKCHAIN"
 	MINING_REWARD     = 1.0
-	MINING_TIMER_SEC  = 20
+	MINING_TIMER_MIN  = 2
 
 	BLOCKCHAIN_PORT_RANGE_START      = 5000
 	BLOCKCHAIN_PORT_RANGE_END        = 5003
@@ -29,8 +29,8 @@ func (bc *Blockchain) NodeSyncNewBlock() {
 		endpoint := fmt.Sprintf("http://%s/transactions", n)
 		client := &http.Client{}
 		req, _ := http.NewRequest("DELETE", endpoint, nil)
-		resp, _ := client.Do(req)
-		log.Printf("%v", resp)
+		client.Do(req)
+		//log.Printf("%v", resp)
 	}
 }
 
@@ -41,8 +41,8 @@ func (bc *Blockchain) NodeSyncTransaction(t *common.Transaction) {
 		endpoint := fmt.Sprintf("http://%s/transactions", n)
 		client := &http.Client{}
 		req, _ := http.NewRequest("PUT", endpoint, buf)
-		resp, _ := client.Do(req)
-		log.Printf("%v", resp)
+		client.Do(req)
+		//log.Printf("%v", resp)
 	}
 }
 
@@ -53,29 +53,28 @@ func (bc *Blockchain) NodeSyncChain(n string) []*Block {
 		var bcResp Blockchain
 		decoder := json.NewDecoder(resp.Body)
 		_ = decoder.Decode(&bcResp)
-	
+
 		return bcResp.Chain()
 	}
 	return nil
-} 
-
-func (bc *Blockchain) NodeSyncConsensus(){
-	for _, n := range bc.neighbors {
-		endpoint := fmt.Sprintf("http://%s/consensus", n)
-		client := &http.Client{}
-		req, _ := http.NewRequest("PUT", endpoint, nil)
-		resp, _ := client.Do(req)
-		log.Printf("%v", resp)
-	}
 }
 
+func (bc *Blockchain) NodeSyncConsensus() {
+	client := &http.Client{}
+	for _, n := range bc.neighbors {
+		endpoint := fmt.Sprintf("http://%s/consensus", n)
+		req, _ := http.NewRequest("PUT", endpoint, nil)
+		client.Do(req)
+		// log.Printf("%v", resp)
+	}
+}
 
 func (bc *Blockchain) SetNeighbors() {
 	bc.neighbors = nodes.FindNeighbors(
 		nodes.GetHost(), bc.port,
 		NEIGHBOR_IP_RANGE_START, NEIGHBOR_IP_RANGE_END,
 		BLOCKCHAIN_PORT_RANGE_START, BLOCKCHAIN_PORT_RANGE_END)
-	log.Printf("%v", bc.neighbors)
+	//log.Printf("%v", bc.neighbors)
 }
 
 func (bc *Blockchain) SyncNeighbors() {
@@ -92,5 +91,12 @@ func (bc *Blockchain) StartSyncNeighbors() {
 func (bc *Blockchain) Run() {
 	bc.StartSyncNeighbors()
 	bc.ResolveConflicts()
+
+	tt := time.Now()
+	m := tt.Minute() % MINING_TIMER_MIN
+	t := tt.Truncate(time.Minute).
+		Add(time.Minute * time.Duration(MINING_TIMER_MIN + m))
+	log.Printf("Mining will start at %s", t.Format("15:04:05"))
+	time.Sleep(time.Until(t))
 	bc.StartMining()
 }

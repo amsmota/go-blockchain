@@ -36,11 +36,6 @@ func (bcs *BlockchainServer) GetBlockchain() *Blockchain {
 		minersWallet := wallet.NewWallet()
 		bc = NewBlockchain(minersWallet.BlockchainAddress(), bcs.Port())
 		cache["blockchain"] = bc
-		log.Printf("PLEASE REMOVE THOSE LINES BELOW")
-		log.Printf("private_key %v", minersWallet.PrivateKeyString())
-		log.Printf("public_key %v", minersWallet.PublicKeyString())
-		log.Printf("blockchcain_address %v", minersWallet.BlockchainAddress())
-		log.Printf("PLEASE REMOVE THOSE LINES ABOVE")
 	}
 	return bc
 }
@@ -67,14 +62,6 @@ func (bcs *BlockchainServer) TransactionPool(res http.ResponseWriter, req *http.
 }
 
 func (bcs *BlockchainServer) Transactions(res http.ResponseWriter, req *http.Request) {
-	decoder := json.NewDecoder(req.Body)
-	var t common.Transaction
-	err := decoder.Decode(&t)
-	if err != nil {
-		log.Printf("ERROR: %v", err)
-		io.WriteString(res, string(common.JsonStatus("fail")))
-		return
-	}
 
 	switch req.Method {
 	case http.MethodGet:
@@ -85,10 +72,11 @@ func (bcs *BlockchainServer) Transactions(res http.ResponseWriter, req *http.Req
 		io.WriteString(res, string(m[:]))
 
 	case http.MethodPost:
-		// VALIDATE HERE TOO?
+		decoder := json.NewDecoder(req.Body)
+		var t common.Transaction
+		decoder.Decode(&t)
 		bc := bcs.GetBlockchain()
 		isCreated := bc.CreateTransaction(&t)
-		// SHOULD WE SEND BACK MORE SIGNIFICANT INFO?
 		res.Header().Add("Content-Type", "application/json")
 		var m []byte
 		if !isCreated {
@@ -99,8 +87,11 @@ func (bcs *BlockchainServer) Transactions(res http.ResponseWriter, req *http.Req
 			m = common.JsonStatus("success")
 		}
 		io.WriteString(res, string(m))
-		
+
 	case http.MethodPut:
+		decoder := json.NewDecoder(req.Body)
+		var t common.Transaction
+		decoder.Decode(&t)
 		bc := bcs.GetBlockchain()
 		isUpdated := bc.AddTransaction(&t)
 		res.Header().Add("Content-Type", "application/json")
@@ -112,6 +103,7 @@ func (bcs *BlockchainServer) Transactions(res http.ResponseWriter, req *http.Req
 			m = common.JsonStatus("success")
 		}
 		io.WriteString(res, string(m))
+
 	case http.MethodDelete:
 		bc := bcs.GetBlockchain()
 		bc.ClearTransactionPool()
@@ -145,15 +137,16 @@ func (bcs *BlockchainServer) Amounts(res http.ResponseWriter, req *http.Request)
 func (bcs *BlockchainServer) Consensus(res http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPut:
-		bc := bcs.GetBlockchain()
-		replaced := bc.ResolveConflicts()
+		log.Printf("IGNORING ResolveConflicts")
+		// bc := bcs.GetBlockchain()
+		// replaced := bc.ResolveConflicts()
 
-		res.Header().Add("Content-Type", "application/json")
-		if replaced {
-			io.WriteString(res, string(common.JsonStatus("success")))
-		} else {
-			io.WriteString(res, string(common.JsonStatus("fail")))
-		}
+		// res.Header().Add("Content-Type", "application/json")
+		// if replaced {
+		// 	io.WriteString(res, string(common.JsonStatus("success")))
+		// } else {
+		// 	io.WriteString(res, string(common.JsonStatus("fail")))
+		// }
 	default:
 		log.Printf("ERROR: Invalid HTTP Method")
 		res.WriteHeader(http.StatusBadRequest)
@@ -161,14 +154,12 @@ func (bcs *BlockchainServer) Consensus(res http.ResponseWriter, req *http.Reques
 }
 
 func (bcs *BlockchainServer) Run() {
-	http.HandleFunc("/blockchain", bcs.GetChain)
-	http.HandleFunc("/transactionPool", bcs.TransactionPool)
-	http.HandleFunc("/transactions", bcs.Transactions)
-	http.HandleFunc("/amounts", bcs.Amounts)
-	http.HandleFunc("/consensus", bcs.Consensus)
-
-	bcs.GetBlockchain().Run()
+	http.HandleFunc("/blockchain", bcs.GetChain)       // GET
+	http.HandleFunc("/transactions", bcs.Transactions) // GET POST PUT DELETE
+	http.HandleFunc("/amounts", bcs.Amounts)           // GET
+	http.HandleFunc("/consensus", bcs.Consensus)       // PUT
 
 	log.Println("BlockchainServer listening on localhost:" + bcs.PortStr())
+	bcs.GetBlockchain().Run()
 	log.Fatal(http.ListenAndServe("localhost:"+bcs.PortStr(), nil))
 }
